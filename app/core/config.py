@@ -34,6 +34,9 @@ class DatabaseConfig(BaseModel):
 
 class AccessToken(BaseModel):
     lifetime_seconds: int = 3600
+    reset_password_token_secret: str
+    verification_token_secret: str
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -45,7 +48,7 @@ class Settings(BaseSettings):
     run: RunConfig = RunConfig()
     api: ApiPrefix = ApiPrefix()
     db: DatabaseConfig
-    access_token: AccessToken = AccessToken()
+    access_token: AccessToken
 
 
 settings = Settings()
