@@ -4,8 +4,8 @@ from os import getenv
 
 from fastapi_users import password
 
-from api.dependencies.authentication.user_manager import get_user_manager
-from api.dependencies.authentication.users import get_users_db
+from api.dependencies.authentication import get_user_manager
+from api.dependencies.authentication import get_users_db
 from core.authentication.user_manager import UserManager
 
 from core.schemas.user import UserCreate
