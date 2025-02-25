@@ -15,4 +15,7 @@ class Base(DeclarativeBase):
 
     @declared_attr.directive
     def __tablename__(cls) -> str:
-        return f"{camel_case_to_snake_case(cls.__name__)}s"
+        table_name = camel_case_to_snake_case(cls.__name__)
+        if table_name.endswith("y"):
+            return f"{table_name[:-1]}ies"
+        return f"{table_name}s"
