@@ -9,6 +9,15 @@ services:
     ports:
       - "5432:5432"
 
+  test_pg:
+    image: postgres
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - "5433:5432"
+
   adminer:
     image: adminer
     ports:
