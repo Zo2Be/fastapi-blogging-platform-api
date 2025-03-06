@@ -1,15 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.api_v1.fastapi_users import current_active_user
+from api.dependencies.posts import post_by_id, check_post_author
 from core.config import settings
+from core.constants import COMMON_RESPONSES
+from core.logger import logger
 from core.models import db_helper, User
 from core.schemas.post import PostRead, PostCreate, PostUpdate
-
 from crud import posts as posts_crud
-from api.dependencies.posts import post_by_id, check_post_author
 
 router = APIRouter(prefix=settings.api.v1.posts, tags=["Posts"])
 
@@ -27,13 +28,41 @@ async def get_posts(
     ],
     search: str = Query(
         None,
-        description="Фильтрация постов по заголовку или категории.",
+        min_length=2,
+        description="Фильтрация постов по заголовку или категории (минимум 2 символа).",
+    ),
+    limit: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Лимит постов на странице (1-100)",
+    ),
+    offset: int = Query(
+        0,
+        ge=0,
+        description="Смещение (начинается с 0)",
+    ),
+    order: str = Query(
+        "id",
+        enum=["id", "title", "created_at"],
+        description="Сортировка по полю (id, title, created_at)",
     ),
 ):
-    if search:
-        posts = await posts_crud.search_posts(session=session, search=search)
-    else:
-        posts = await posts_crud.get_all_posts(session=session)
+    logger.info(
+        "Get posts with params: search=%s, limit=%d, offset=%d, order=%s",
+        search,
+        limit,
+        offset,
+        order,
+    )
+    posts = await posts_crud.get_all_posts(
+        session=session,
+        search=search,
+        limit=limit,
+        offset=offset,
+        order=order,
+    )
+    logger.info("Found %r posts", len(posts))
     return posts
 
 
@@ -48,6 +77,7 @@ async def get_posts(
 async def get_post(
     post: Annotated[PostRead, Depends(post_by_id)],
 ):
+    logger.info("Get post ID: %d", post.id)
     return post
 
 
@@ -65,17 +95,28 @@ async def create_post(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
-    post_create: PostCreate,
     user: Annotated[
         User,
         Depends(current_active_user),
     ],
+    post_create: PostCreate,
 ):
-    return await posts_crud.create_post(
+    logger.info(
+        "User %r creating new post with title: %r",
+        user.id,
+        post_create.title,
+    )
+    new_post = await posts_crud.create_post(
         session=session,
         post_create=post_create,
         user_id=user.id,
     )
+    logger.info(
+        "Post created successfully. ID: %r, Author: %r",
+        new_post.id,
+        user.id,
+    )
+    return new_post
 
 
 @router.patch(
@@ -89,22 +130,34 @@ async def update_post(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
-    post: Annotated[PostRead, Depends(post_by_id)],
-    post_update: PostUpdate,
     user: Annotated[
         User,
         Depends(current_active_user),
     ],
+    post: Annotated[PostRead, Depends(post_by_id)],
+    post_update: PostUpdate,
 ):
+    logger.info(
+        "User %r updating post ID: %r",
+        user.id,
+        post.id,
+    )
     await check_post_author(
         user_id=user.id,
         post=post,
     )
-    return await posts_crud.update_post(
+    updated_post = await posts_crud.update_post(
         session=session,
         post=post,
         post_update=post_update,
     )
+    logger.info(
+        "Post ID %r updated successfully. Updated fields: %r by user with %r id",
+        post.id,
+        post_update.model_dump(exclude_unset=True),
+        user.id,
+    )
+    return updated_post
 
 
 @router.delete(
@@ -118,9 +171,23 @@ async def delete_post(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
+    user: Annotated[
+        User,
+        Depends(current_active_user),
+    ],
     post: Annotated[PostRead, Depends(post_by_id)],
 ) -> None:
-    return await posts_crud.delete_post(
+    logger.info("Deleting post ID: %r", post.id)
+    await check_post_author(
+        user_id=user.id,
+        post=post,
+    )
+    await posts_crud.delete_post(
         session=session,
         post=post,
+    )
+    logger.info(
+        "Post ID %r deleted successfully by user with %r id",
+        post.id,
+        user.id,
     )
