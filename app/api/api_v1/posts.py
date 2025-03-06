@@ -14,7 +14,12 @@ from api.dependencies.posts import post_by_id, check_post_author
 router = APIRouter(prefix=settings.api.v1.posts, tags=["Posts"])
 
 
-@router.get("", response_model=list[PostRead])
+@router.get(
+    "",
+    response_model=list[PostRead],
+    summary="Get all posts",
+    description="Get list of posts with filtering and pagination",
+)
 async def get_posts(
     session: Annotated[
         AsyncSession,
@@ -32,14 +37,29 @@ async def get_posts(
     return posts
 
 
-@router.get("/{post_id}", response_model=PostRead)
+@router.get(
+    "/{post_id}",
+    response_model=PostRead,
+    summary="Get post by ID",
+    responses={
+        status.HTTP_404_NOT_FOUND: COMMON_RESPONSES[status.HTTP_404_NOT_FOUND],
+    },
+)
 async def get_post(
     post: Annotated[PostRead, Depends(post_by_id)],
 ):
     return post
 
 
-@router.post("", response_model=PostRead)
+@router.post(
+    "",
+    response_model=PostRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create new post",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: COMMON_RESPONSES[status.HTTP_401_UNAUTHORIZED]
+    },
+)
 async def create_post(
     session: Annotated[
         AsyncSession,
@@ -58,7 +78,12 @@ async def create_post(
     )
 
 
-@router.patch("/{post_id}", response_model=PostRead)
+@router.patch(
+    "/{post_id}",
+    response_model=PostRead,
+    summary="Update existing post",
+    responses=COMMON_RESPONSES,
+)
 async def update_post(
     session: Annotated[
         AsyncSession,
@@ -82,7 +107,12 @@ async def update_post(
     )
 
 
-@router.delete("/{post_id}")
+@router.delete(
+    "/{post_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete post",
+    responses=COMMON_RESPONSES,
+)
 async def delete_post(
     session: Annotated[
         AsyncSession,
