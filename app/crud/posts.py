@@ -1,4 +1,4 @@
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, Select
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,6 +10,10 @@ from core.types.user_id import UserIdType
 
 async def get_all_posts(
     session: AsyncSession,
+    search: str | None = None,
+    limit: int = 10,
+    offset: int = 0,
+    order: str = "id",
 ) -> list[Post]:
     statement = (
         select(Post)
@@ -19,9 +23,28 @@ async def get_all_posts(
         )
         .order_by(Post.id)
     )
+
+    if search:
+        statement = statement.where(
+            or_(
+                Post.title.ilike(f"%{search}%"),
+                Post.category.has(Category.name.ilike(f"%{search}%")),
+            )
+        )
+    statement = apply_ordering(statement, order)
+    statement = statement.limit(limit).offset(offset)
+
     result: Result = await session.execute(statement)
     posts = result.scalars().all()
     return list(posts)
+
+
+def apply_ordering(statement: Select, order: str) -> Select:
+    if order == "title":
+        return statement.order_by(Post.title.asc())
+    if order == "created_at":
+        return statement.order_by(Post.created_at.desc())
+    return statement.order_by(Post.id.asc())
 
 
 async def get_post_by_id(
@@ -94,29 +117,6 @@ async def delete_post(
 ) -> None:
     await session.delete(post)
     await session.commit()
-
-
-async def search_posts(
-    session: AsyncSession,
-    search: str,
-) -> list[Post]:
-    statement = (
-        select(Post)
-        .options(
-            selectinload(Post.category),
-            selectinload(Post.user),
-        )
-        .where(
-            or_(
-                Post.title.ilike(f"%{search}%"),
-                Post.category.has(Category.name.ilike(f"%{search}%")),
-            ),
-        )
-        .order_by(Post.id)
-    )
-    result: Result = await session.execute(statement)
-    posts = result.scalars().all()
-    return list(posts)
 
 
 async def get_or_create_category(
