@@ -47,6 +47,11 @@ class AccessToken(BaseModel):
     reset_password_token_secret: str
     verification_token_secret: str
 
+class RedisConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 6379
+    ex: int = 60
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -59,6 +64,7 @@ class Settings(BaseSettings):
     api: ApiPrefix = ApiPrefix()
     db: DatabaseConfig
     access_token: AccessToken
+    redis: RedisConfig = RedisConfig()
 
 
 settings = Settings()
