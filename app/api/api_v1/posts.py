@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.api_v1.fastapi_users import current_active_user
 from api.dependencies.posts import post_by_id, check_post_author
+from core.cache import get_redis_client
 from core.config import settings
 from core.constants import COMMON_RESPONSES
 from core.logger import logger
@@ -26,6 +28,7 @@ async def get_posts(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
+    redis_client=Depends(get_redis_client),
     search: str = Query(
         None,
         min_length=2,
@@ -55,6 +58,13 @@ async def get_posts(
         offset,
         order,
     )
+    cache_key = f"posts_cache:{search}:{limit}:{offset}:{order}"
+    cached = await redis_client.get(cache_key)
+    if cached:
+        posts = json.loads(cached)
+        logger.info("Found %r cached posts", len(posts))
+        return posts
+
     posts = await posts_crud.get_all_posts(
         session=session,
         search=search,
@@ -63,6 +73,15 @@ async def get_posts(
         order=order,
     )
     logger.info("Found %r posts", len(posts))
+    posts_data = [
+        PostRead.model_validate(post).model_dump(mode="json") for post in posts
+    ]
+    await redis_client.set(
+        cache_key,
+        json.dumps(posts_data),
+        ex=settings.redis.ex,
+    )
+    logger.info("Saved %r for %r seconds", cache_key, settings.redis.ex)
     return posts
 
 
