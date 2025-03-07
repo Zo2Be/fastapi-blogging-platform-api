@@ -12,6 +12,7 @@ asyncpg = "^0.30.0"
 alembic = "^1.14.1"
 orjson = "^3.10.15"
 fastapi-users = {extras = ["sqlalchemy"], version = "^14.0.1"}
+redis = "^5.2.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
