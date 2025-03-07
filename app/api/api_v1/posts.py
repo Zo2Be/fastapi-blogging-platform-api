@@ -10,7 +10,7 @@ from core.cache import get_redis_client
 from core.config import settings
 from core.constants import COMMON_RESPONSES
 from core.logger import logger
-from core.models import db_helper, User
+from core.models import db_helper, User, Post
 from core.schemas.post import PostRead, PostCreate, PostUpdate
 from crud import posts as posts_crud
 
@@ -149,21 +149,17 @@ async def update_post(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
-    user: Annotated[
-        User,
-        Depends(current_active_user),
+    user_post: Annotated[
+        tuple[User, Post],
+        Depends(check_post_author),
     ],
-    post: Annotated[PostRead, Depends(post_by_id)],
     post_update: PostUpdate,
 ):
+    user, post = user_post
     logger.info(
         "User %r updating post ID: %r",
         user.id,
         post.id,
-    )
-    await check_post_author(
-        user_id=user.id,
-        post=post,
     )
     updated_post = await posts_crud.update_post(
         session=session,
@@ -190,17 +186,13 @@ async def delete_post(
         AsyncSession,
         Depends(db_helper.session_getter),
     ],
-    user: Annotated[
-        User,
-        Depends(current_active_user),
+    user_post: Annotated[
+        tuple[User, Post],
+        Depends(check_post_author),
     ],
-    post: Annotated[PostRead, Depends(post_by_id)],
 ) -> None:
+    user, post = user_post
     logger.info("Deleting post ID: %r", post.id)
-    await check_post_author(
-        user_id=user.id,
-        post=post,
-    )
     await posts_crud.delete_post(
         session=session,
         post=post,
