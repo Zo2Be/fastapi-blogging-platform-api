@@ -35,8 +35,16 @@ class PostRead(BaseModel):
 
     @field_validator("category", mode="before")
     def get_category(cls, value):
-        return value.name if hasattr(value, "name") else "Unknown"
+        if isinstance(value, str):
+            return value
+        if hasattr(value, "name"):
+            return value.name
+        return "Unknown"
 
     @field_validator("user", mode="before")
     def get_user(cls, value):
-        return value.email if hasattr(value, "email") else "Unknown"
+        if isinstance(value, str):
+            return value
+        if hasattr(value, "email"):
+            return value.email
+        return "Unknown"
